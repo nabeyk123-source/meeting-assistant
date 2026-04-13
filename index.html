@@ -1,0 +1,1195 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>会議アシスタント</title>
+<style>
+:root{
+  --bg:#f5f4f0;--surface:#fff;--surface2:#f9f8f4;
+  --border:#e0ddd5;--text:#1a1a18;--muted:#6b6b66;--hint:#9a9890;
+  --accent:#533ab7;--accent-light:#eeedfe;--accent-mid:#7f77dd;
+  --red:#e24b4a;--red-light:#fcebeb;
+  --green:#3b6d11;--green-light:#eaf3de;
+  --amber:#ba7517;--amber-light:#faeeda;
+  --teal:#0f6e56;--teal-light:#e1f5ee;
+  --r:10px;--sh:0 1px 4px rgba(0,0,0,.08);
+}
+@media(prefers-color-scheme:dark){:root{
+  --bg:#1c1c1a;--surface:#242422;--surface2:#2a2a28;
+  --border:#3a3a36;--text:#e8e6de;--muted:#9a9890;--hint:#6b6b66;
+  --accent-light:#26215c;--red-light:#501313;--green-light:#173404;
+  --amber-light:#412402;--teal-light:#04342c;
+}}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:var(--bg);color:var(--text);min-height:100vh}
+.app{display:flex;height:100vh;overflow:hidden}
+
+/* Sidebar */
+.sidebar{width:240px;min-width:240px;background:var(--surface);border-right:1px solid var(--border);display:flex;flex-direction:column;overflow:hidden}
+.sb-head{padding:14px 16px;border-bottom:1px solid var(--border)}
+.sb-head h2{font-size:14px;font-weight:500;margin-bottom:10px}
+.sb-list{flex:1;overflow-y:auto}
+.sb-sec{padding:9px 16px 3px;font-size:10px;font-weight:500;color:var(--hint);text-transform:uppercase;letter-spacing:.7px}
+.sb-item{padding:8px 14px;font-size:13px;cursor:pointer;border-left:3px solid transparent;display:flex;align-items:center;gap:6px;min-width:0}
+.sb-item:hover{background:var(--surface2)}
+.sb-item.active{background:var(--accent-light);border-left-color:var(--accent);color:var(--accent);font-weight:500}
+.sbi-name{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.sbi-meta{font-size:11px;color:var(--hint);white-space:nowrap}
+.sb-foot{padding:12px 16px;border-top:1px solid var(--border);display:flex;gap:6px}
+
+/* Main */
+.main{flex:1;overflow-y:auto;padding:0 26px 22px}
+.tabs{display:flex;border-bottom:1px solid var(--border);margin-bottom:22px;position:sticky;top:0;z-index:10;background:var(--bg);padding-top:22px}
+.tab{padding:9px 16px;font-size:13px;font-weight:500;color:var(--muted);cursor:pointer;border-bottom:2px solid transparent;white-space:nowrap}
+.tab:hover{color:var(--text)}
+.tab.active{color:var(--accent);border-bottom-color:var(--accent)}
+.tp{display:none}.tp.active{display:block}
+
+/* Cards */
+.card{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:18px 20px;box-shadow:var(--sh);margin-bottom:16px}
+.card-title{font-size:10px;font-weight:500;color:var(--hint);text-transform:uppercase;letter-spacing:.7px;margin-bottom:13px}
+.g2{display:grid;grid-template-columns:1fr 1fr;gap:13px}
+@media(max-width:680px){.g2{grid-template-columns:1fr}}
+
+/* Form */
+label{font-size:13px;color:var(--muted);display:block;margin-bottom:5px}
+select,input[type=text],input[type=password],textarea{width:100%;padding:8px 11px;border:1px solid var(--border);border-radius:8px;background:var(--bg);color:var(--text);font-size:14px;font-family:inherit;outline:none}
+select:focus,input:focus,textarea:focus{border-color:var(--accent)}
+textarea{resize:vertical;line-height:1.75}
+.irow{display:flex;gap:7px}
+.irow input,.irow select{flex:1}
+
+/* Buttons */
+button{padding:8px 17px;border:none;border-radius:8px;font-size:13px;font-weight:500;cursor:pointer;font-family:inherit}
+button:disabled{opacity:.4;cursor:not-allowed}
+.bp{background:var(--accent);color:#fff}
+.br{background:var(--red);color:#fff}
+.bn{background:var(--border);color:var(--text)}
+.bg{background:var(--green);color:#fff}
+.bt{background:var(--teal);color:#fff}
+.bsm{padding:5px 11px;font-size:12px}
+.ctrls{display:flex;gap:9px;flex-wrap:wrap;align-items:center}
+
+/* Recording */
+.rec-top{display:flex;align-items:center;gap:18px;flex-wrap:wrap;margin-bottom:14px}
+.timer{font-size:30px;font-weight:500;font-variant-numeric:tabular-nums;letter-spacing:1px}
+.sbadge{display:inline-flex;align-items:center;gap:6px;padding:4px 11px;border-radius:20px;font-size:13px;font-weight:500}
+.s-idle{background:var(--border);color:var(--muted)}
+.s-rec{background:var(--red-light);color:var(--red)}
+.s-done{background:var(--green-light);color:var(--green)}
+.dot{width:7px;height:7px;border-radius:50%;background:currentColor}
+.dot.pulse{animation:pulse 1.2s ease-in-out infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
+
+/* Transcript */
+.tbox{min-height:160px;max-height:340px;overflow-y:auto;padding:12px;border:1px solid var(--border);border-radius:8px;background:var(--bg);font-size:14px;line-height:1.9;word-break:break-all}
+.tline{margin-bottom:2px}
+.interim-txt{color:var(--accent);opacity:.6;font-style:italic}
+.ph{color:var(--hint);font-style:italic;font-size:13px}
+.ccount{font-size:12px;color:var(--hint);margin-top:4px}
+.sr-status{font-size:12px;color:var(--muted);margin-top:4px}
+.arow{display:flex;gap:7px;margin-top:11px;flex-wrap:wrap}
+
+/* Minutes */
+.mbox{min-height:90px;padding:14px;border:1px solid var(--border);border-radius:8px;background:var(--bg);font-size:14px;line-height:1.8;white-space:pre-wrap;word-break:break-all}
+.loading{display:flex;align-items:center;gap:9px;color:var(--muted);font-size:13px}
+.spin{width:16px;height:16px;border:2px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin .8s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+/* AI chips */
+.chips{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:11px}
+.chip{padding:5px 13px;border:1.5px solid var(--border);border-radius:20px;background:var(--bg);color:var(--muted);font-size:13px;font-weight:500;cursor:pointer;font-family:inherit}
+.chip.active{border-color:var(--accent);background:var(--accent-light);color:var(--accent)}
+
+/* Save */
+.spanel{background:var(--teal-light);border:1px solid var(--border);border-radius:var(--r);padding:15px;margin-bottom:16px}
+.spanel-title{font-size:13px;font-weight:500;color:var(--teal);margin-bottom:11px}
+.fdisp{font-size:13px;padding:7px 11px;background:var(--bg);border:1px solid var(--border);border-radius:8px;color:var(--muted);word-break:break-all;min-height:34px}
+
+/* Info box */
+.ibox{background:var(--accent-light);border:1px solid var(--border);border-radius:8px;padding:11px 14px;font-size:13px;line-height:1.7;color:var(--muted)}
+.ibox strong{color:var(--text)}
+
+/* Projects */
+.pcard{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:13px 16px;cursor:pointer;margin-bottom:9px}
+.pcard:hover{border-color:var(--accent-mid)}
+.pname{font-size:15px;font-weight:500;margin-bottom:3px}
+.pmeta{font-size:12px;color:var(--muted);display:flex;gap:10px}
+.mrow{background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:11px 14px;display:flex;align-items:center;gap:10px;margin-bottom:7px;cursor:pointer}
+.mrow:hover{border-color:var(--accent-mid)}
+.minfo{flex:1;min-width:0}
+.minfo .mn{font-size:14px;font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.minfo .mm{font-size:12px;color:var(--muted);margin-top:2px}
+.empty{text-align:center;padding:32px 20px;color:var(--hint);font-size:13px}
+.empty .ei{font-size:28px;margin-bottom:7px}
+
+/* Modals */
+.overlay{position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:100;display:flex;align-items:flex-start;justify-content:center;padding:40px 20px;overflow-y:auto}
+.modal{background:var(--surface);border-radius:14px;width:100%;max-width:760px;box-shadow:0 8px 32px rgba(0,0,0,.2);overflow:hidden}
+.modal-head{padding:18px 22px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:12px}
+.modal-head h3{flex:1;font-size:16px;font-weight:500}
+.modal-body{padding:22px;max-height:70vh;overflow-y:auto}
+.modal-tabs{display:flex;border-bottom:1px solid var(--border);margin-bottom:18px}
+.mtab{padding:8px 16px;font-size:13px;font-weight:500;color:var(--muted);cursor:pointer;border-bottom:2px solid transparent}
+.mtab.active{color:var(--accent);border-bottom-color:var(--accent)}
+.mtp{display:none}.mtp.active{display:block}
+.review-text{font-size:14px;line-height:1.85;white-space:pre-wrap;word-break:break-all;background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:14px;min-height:80px}
+
+/* Guide */
+.guide-overlay{position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:200;display:flex;align-items:center;justify-content:center;padding:20px}
+.guide-modal{background:var(--surface);border-radius:14px;width:100%;max-width:680px;max-height:90vh;overflow-y:auto;box-shadow:0 8px 40px rgba(0,0,0,.3)}
+.guide-head{padding:20px 24px 0;display:flex;align-items:center;gap:12px}
+.guide-head h2{flex:1;font-size:17px;font-weight:600}
+.guide-body{padding:16px 24px 24px}
+.g-step{font-size:11px;font-weight:600;color:var(--accent);text-transform:uppercase;letter-spacing:.7px;margin-bottom:6px}
+.g-page{display:none}.g-page.active{display:block}
+.g-check{display:flex;flex-direction:column;gap:8px;margin:12px 0}
+.g-item{display:flex;align-items:flex-start;gap:10px;padding:10px 12px;border:1.5px solid var(--border);border-radius:8px;cursor:pointer;background:var(--bg)}
+.g-item:hover{border-color:var(--accent)}
+.g-item.done{border-color:var(--green);background:var(--green-light)}
+.g-cb{width:20px;height:20px;border-radius:5px;border:2px solid var(--border);flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:12px;margin-top:1px}
+.g-item.done .g-cb{background:var(--green);border-color:var(--green);color:#fff}
+.g-ct{flex:1;font-size:13px;line-height:1.65}
+.g-ct strong{display:block;margin-bottom:2px}
+.g-ct span{color:var(--muted);font-size:12px}
+.g-hbox{border-radius:8px;padding:10px 13px;font-size:13px;line-height:1.7;margin:10px 0}
+.g-hbox.green{background:var(--green-light);color:var(--green)}
+.g-hbox.amber{background:var(--amber-light);color:var(--amber)}
+.g-hbox.red{background:var(--red-light);color:var(--red)}
+.g-hbox.accent{background:var(--accent-light);color:var(--accent)}
+.g-nav{display:flex;justify-content:space-between;margin-top:16px;gap:10px}
+.g-progress{display:flex;justify-content:center;gap:6px;margin-bottom:16px}
+.g-dot{width:8px;height:8px;border-radius:50%;background:var(--border)}
+.g-dot.active{background:var(--accent)}
+.g-dot.done{background:var(--green)}
+
+audio{width:100%;margin-top:7px;border-radius:8px}
+@media(max-width:640px){.sidebar{display:none}.main{padding:0 14px 14px}}
+</style>
+</head>
+<body>
+<div class="app">
+
+<!-- SIDEBAR -->
+<aside class="sidebar">
+  <div class="sb-head">
+    <h2>🎙️ 会議アシスタント</h2>
+    <button class="bp" style="width:100%;font-size:12px;padding:7px" onclick="newMeeting()">＋ 新しい会議</button>
+  </div>
+  <div class="sb-list">
+    <div class="sb-sec">プロジェクト</div>
+    <div id="sbProj"></div>
+    <div class="sb-sec" style="margin-top:4px">最近の会議</div>
+    <div id="sbRecent"></div>
+  </div>
+  <div class="sb-foot">
+    <button class="bn bsm" style="flex:1" onclick="showTab('settings')">⚙ 設定</button>
+    <button class="bn bsm" onclick="showGuide()">📖 ガイド</button>
+  </div>
+</aside>
+
+<!-- MAIN -->
+<main class="main">
+  <div class="tabs">
+    <div class="tab active" onclick="showTab('record')" data-tab="record">🎙 録音</div>
+    <div class="tab" onclick="showTab('minutes')" data-tab="minutes">📄 議事録</div>
+    <div class="tab" onclick="showTab('projects')" data-tab="projects">📁 プロジェクト</div>
+    <div class="tab" onclick="showTab('settings')" data-tab="settings">⚙ 設定</div>
+  </div>
+
+  <!-- TAB: 録音 -->
+  <div class="tp active" id="tab-record">
+
+    <div class="card">
+      <div class="card-title">会議情報</div>
+      <div class="g2">
+        <div>
+          <label>会議名</label>
+          <input type="text" id="meetingName" placeholder="例: Q2週次定例" oninput="updateFolderPreview()"/>
+        </div>
+        <div>
+          <label>プロジェクト</label>
+          <div class="irow">
+            <select id="projectSelect" onchange="updateFolderPreview()"><option value="">── なし ──</option></select>
+            <button class="bn bsm" onclick="showTab('projects')">📁</button>
+          </div>
+        </div>
+      </div>
+      <div style="margin-top:11px;padding:10px 12px;background:var(--surface2);border:1px solid var(--border);border-radius:8px;font-size:13px">
+        <span style="color:var(--hint)">録音開始日時：</span>
+        <span id="recStartTime" style="font-weight:500">（録音開始時に自動セット）</span>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">音声設定</div>
+      <label>🌐 文字起こし言語</label>
+      <select id="langSelect" style="max-width:220px">
+        <option value="ja-JP">日本語</option>
+        <option value="en-US">English (US)</option>
+        <option value="zh-CN">中文</option>
+        <option value="ko-KR">한국어</option>
+      </select>
+      <div class="ibox" style="margin-top:10px">
+        💡 VoiceMeeter OutputをWindowsの<strong>既定の録音デバイス</strong>に設定してください。
+        <button class="bn bsm" style="margin-left:8px" onclick="showGuide()">📖 設定ガイド</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">録音コントロール</div>
+      <div class="rec-top">
+        <div class="timer" id="timer">00:00:00</div>
+        <span class="sbadge s-idle" id="statusBadge">
+          <span class="dot" id="statusDot"></span>
+          <span id="statusText">待機中</span>
+        </span>
+      </div>
+      <div class="ctrls">
+        <button class="bp" id="startBtn" onclick="startRecording()">▶ 録音開始</button>
+        <button class="br" id="stopBtn" onclick="stopRecording()" disabled>■ 停止</button>
+        <button class="bn" onclick="clearAll()">🗑 クリア</button>
+      </div>
+    </div>
+
+    <div class="card" id="audioCard" style="display:none">
+      <div class="card-title">🔊 録音データ</div>
+      <audio id="audioPlayer" controls></audio>
+      <div class="arow">
+        <button class="bn bsm" onclick="downloadAudio()">💾 音声を保存</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">📝 文字起こし</div>
+      <div class="tbox" id="transcriptBox">
+        <span class="ph">録音を開始するとリアルタイムで文字が表示されます。</span>
+      </div>
+      <div style="display:flex;gap:16px;margin-top:4px">
+        <span class="ccount" id="charCount">0 文字</span>
+        <span class="sr-status" id="srStatus">⚫ 待機中</span>
+      </div>
+      <div class="arow">
+        <button class="bn bsm" onclick="copyTranscript()">📋 コピー</button>
+        <button class="bn bsm" onclick="downloadTranscript()">💾 保存</button>
+      </div>
+    </div>
+
+    <div class="spanel">
+      <div class="spanel-title">📦 会議データを保存</div>
+      <div style="margin-bottom:10px">
+        <label style="color:var(--teal)">作成されるフォルダ名</label>
+        <div class="fdisp" id="folderPreview" style="color:var(--teal);font-weight:500">（会議名・日時が入ります）</div>
+      </div>
+      <!-- 保存先フォルダ -->
+      <div style="margin-bottom:10px;padding:10px 12px;background:var(--bg);border:1px solid var(--border);border-radius:8px;font-size:13px">
+        <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+          <span style="color:var(--hint)">📂 保存先：</span>
+          <span id="folderDisplay" style="flex:1;color:var(--muted);min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">未選択</span>
+          <button class="bn bsm" id="reconnectBtn" style="display:none" onclick="reconnectFolder()">🔄 再接続</button>
+          <button class="bn bsm" onclick="pickFolder()">📂 変更</button>
+        </div>
+      </div>
+      <div class="ctrls">
+        <button class="bt" id="saveAllBtn" onclick="saveAllFiles()">📦 書き出し</button>
+        <button class="bn bsm" onclick="opfsBackupNow()">💾 バックアップ</button>
+      </div>
+      <p style="font-size:12px;color:var(--teal);margin-top:8px" id="saveStatus"></p>
+    </div>
+  </div>
+
+  <!-- TAB: 議事録 -->
+  <div class="tp" id="tab-minutes">
+    <div class="card">
+      <div class="card-title">AI を選択</div>
+      <div class="chips">
+        <button class="chip active" data-ai="gemini" onclick="selectAI('gemini')">Gemini</button>
+        <button class="chip" data-ai="claude" onclick="selectAI('claude')">Claude</button>
+        <button class="chip" data-ai="openai" onclick="selectAI('openai')">GPT-4o</button>
+      </div>
+      <label>モデル</label>
+      <select id="modelSelect" style="max-width:400px"></select>
+    </div>
+    <div class="card">
+      <div class="card-title">議事録生成</div>
+      <div style="margin-bottom:11px">
+        <label>コンテキスト</label>
+        <textarea id="context" rows="4"></textarea>
+      </div>
+      <div class="ctrls">
+        <button class="bg" id="genBtn" onclick="generateMinutes()">✨ 議事録を生成</button>
+        <button class="bn bsm" onclick="resetContext()">↺ リセット</button>
+      </div>
+      <div style="margin-top:14px">
+        <div class="mbox" id="minutesBox"><span class="ph">「議事録を生成」ボタンで作成します。</span></div>
+      </div>
+      <div class="arow">
+        <button class="bn bsm" onclick="copyMinutes()">📋 コピー</button>
+        <button class="bn bsm" onclick="downloadMinutes()">💾 保存</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- TAB: プロジェクト -->
+  <div class="tp" id="tab-projects">
+    <div class="card">
+      <div class="card-title">プロジェクト管理</div>
+      <div class="irow" style="margin-bottom:14px">
+        <input type="text" id="newProjName" placeholder="プロジェクト名"/>
+        <input type="text" id="newProjColor" placeholder="色 #533ab7" style="max-width:110px"/>
+        <button class="bp bsm" onclick="addProject()">追加</button>
+      </div>
+      <div id="projList"><div class="empty"><div class="ei">📁</div>プロジェクトがありません</div></div>
+    </div>
+    <div class="card" id="projMtgCard" style="display:none">
+      <div class="card-title" id="projMtgTitle">会議履歴</div>
+      <div id="projMtgList"></div>
+    </div>
+  </div>
+
+  <!-- TAB: 設定 -->
+  <div class="tp" id="tab-settings">
+    <div class="card">
+      <div class="card-title">デフォルト保存先フォルダ</div>
+      <div class="ctrls" style="margin-bottom:10px">
+        <button class="bt" onclick="pickFolderSettings()">📂 フォルダを選択して固定</button>
+        <button class="bn bsm" onclick="clearSavedFolder()">クリア</button>
+      </div>
+      <div class="fdisp" id="savedFolderDisplay">未設定</div>
+    </div>
+    <div class="card">
+      <div class="card-title">OPFSバックアップ</div>
+      <div id="opfsFileList" style="font-size:13px;color:var(--muted)">読み込み中...</div>
+      <div class="ctrls" style="margin-top:10px">
+        <button class="bn bsm" onclick="loadOpfsList()">🔄 更新</button>
+        <button class="br bsm" onclick="clearOpfs()">🗑 全削除</button>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-title">API キー</div>
+      <div style="display:flex;flex-direction:column;gap:14px">
+        <div>
+          <label>Gemini API キー</label>
+          <div class="irow"><input type="password" id="keyGemini" placeholder="AIza..."/><button class="bn bsm" onclick="saveApiKey('gemini')">保存</button></div>
+          <p class="ccount" id="ksgem"></p>
+        </div>
+        <div>
+          <label>Claude API キー</label>
+          <div class="irow"><input type="password" id="keyClaude" placeholder="sk-ant-..."/><button class="bn bsm" onclick="saveApiKey('claude')">保存</button></div>
+          <p class="ccount" id="kscla"></p>
+        </div>
+        <div>
+          <label>OpenAI API キー</label>
+          <div class="irow"><input type="password" id="keyOpenai" placeholder="sk-..."/><button class="bn bsm" onclick="saveApiKey('openai')">保存</button></div>
+          <p class="ccount" id="ksoai"></p>
+        </div>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-title">データ管理</div>
+      <button class="br bsm" onclick="clearAllData()">⚠ 全データ削除</button>
+    </div>
+  </div>
+</main>
+</div>
+
+<!-- REVIEW MODAL -->
+<div class="overlay" id="reviewOverlay" style="display:none" onclick="closeReview(event)">
+  <div class="modal" onclick="event.stopPropagation()">
+    <div class="modal-head">
+      <h3 id="reviewTitle">会議の振り返り</h3>
+      <div style="font-size:12px;color:var(--hint)" id="reviewMeta"></div>
+      <button class="bn bsm" onclick="closeReview()">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="modal-tabs">
+        <div class="mtab active" onclick="switchModalTab('mt-minutes')">📄 議事録</div>
+        <div class="mtab" onclick="switchModalTab('mt-transcript')">📝 文字起こし</div>
+        <div class="mtab" onclick="switchModalTab('mt-info')">ℹ 情報</div>
+      </div>
+      <div class="mtp active" id="mt-minutes"><div class="review-text" id="rvMinutes"></div><div class="arow"><button class="bn bsm" onclick="copyText('rvMinutes')">📋 コピー</button></div></div>
+      <div class="mtp" id="mt-transcript"><div class="review-text" id="rvTranscript"></div><div class="arow"><button class="bn bsm" onclick="copyText('rvTranscript')">📋 コピー</button></div></div>
+      <div class="mtp" id="mt-info"><div class="review-text" id="rvInfo"></div></div>
+    </div>
+  </div>
+</div>
+
+<!-- GUIDE MODAL -->
+<div class="guide-overlay" id="guideOverlay" style="display:none">
+  <div class="guide-modal">
+    <div class="guide-head">
+      <h2>🎙️ VoiceMeeter Banana 設定ガイド</h2>
+      <button class="bn bsm" onclick="closeGuide()">✕ 閉じる</button>
+    </div>
+    <div class="guide-body">
+      <p style="font-size:13px;color:var(--muted);margin-bottom:12px">自分と相手の声を両方文字起こしするための設定です。一度設定すれば次回以降不要です。</p>
+      <div class="g-progress" id="gDots"></div>
+
+      <div class="g-page active" id="gp-0">
+        <div class="g-step">Step 1</div>
+        <h3 style="font-size:15px;font-weight:600;margin-bottom:10px">VoiceMeeter Banana をインストール</h3>
+        <div class="g-check">
+          <div class="g-item" onclick="gToggle(this)"><div class="g-cb"></div><div class="g-ct"><strong>公式サイトからダウンロード・インストール</strong><span>vb-audio.com → VoiceMeeter Banana</span></div></div>
+          <div class="g-item" onclick="gToggle(this)"><div class="g-cb"></div><div class="g-ct"><strong>PCを再起動</strong><span>音声ドライバーの反映に必要です</span></div></div>
+          <div class="g-item" onclick="gToggle(this)"><div class="g-cb"></div><div class="g-ct"><strong>VoiceMeeter Banana を起動</strong></div></div>
+        </div>
+        <div class="g-hbox amber">💡 無料で使えます（寄付歓迎）。企業利用も可能です。</div>
+      </div>
+
+      <div class="g-page" id="gp-1">
+        <div class="g-step">Step 2</div>
+        <h3 style="font-size:15px;font-weight:600;margin-bottom:10px">Windowsの再生デバイスを変更</h3>
+        <div class="g-check">
+          <div class="g-item" onclick="gToggle(this)"><div class="g-cb"></div><div class="g-ct"><strong>サウンドコントロールパネルを開く</strong><span>🔊右クリック →「サウンドの設定」→「サウンドコントロールパネル」</span></div></div>
+          <div class="g-item" onclick="gToggle(this)"><div class="g-cb"></div><div class="g-ct"><strong>「再生」タブ → VoiceMeeter Input を既定に設定</strong><span>右クリック →「既定のデバイスとして設定」</span></div></div>
+        </div>
+        <div class="g-hbox accent">ℹ️ これでTeams・Zoomの音声がVoiceMeeterに流れます。</div>
+      </div>
+
+      <div class="g-page" id="gp-2">
+        <div class="g-step">Step 3</div>
+        <h3 style="font-size:15px;font-weight:600;margin-bottom:10px">VoiceMeeter Banana の設定</h3>
+        <div class="g-check">
+          <div class="g-item" onclick="gToggle(this)"><div class="g-cb"></div><div class="g-ct"><strong>① Stereo Input 1 にマイクを設定</strong><span>デバイス名をクリック → 物理マイク・ヘッドセットを選択</span></div></div>
+          <div class="g-item" onclick="gToggle(this)"><div class="g-cb"></div><div class="g-ct"><strong>② Stereo Input 1 の B1 をON（点灯）</strong><span>マイク音声が文字起こし側へ流れます</span></div></div>
+          <div class="g-item" onclick="gToggle(this)"><div class="g-cb"></div><div class="g-ct"><strong>③ HARDWARE OUT A1 にイヤホンを設定</strong><span>実際に音を聴くデバイスを選択</span></div></div>
+          <div class="g-item" onclick="gToggle(this)"><div class="g-cb"></div><div class="g-ct"><strong>④ VIRTUAL INPUTS の B1 と A1 をON</strong><span>B1 = 文字起こしへ出力 ／ A1 = イヤホンで聴く</span></div></div>
+          <div class="g-item" onclick="gToggle(this)"><div class="g-cb"></div><div class="g-ct"><strong>⑤ Menu → System Settings → サンプリングレートを 44100Hz に設定して再起動</strong></div></div>
+        </div>
+        <div class="g-hbox green">✅ イヤホンから音が聞こえれば完了です。</div>
+      </div>
+
+      <div class="g-page" id="gp-3">
+        <div class="g-step">Step 4</div>
+        <h3 style="font-size:15px;font-weight:600;margin-bottom:10px">Teams / Zoom の音声設定</h3>
+        <div class="g-check">
+          <div class="g-item" onclick="gToggle(this)"><div class="g-cb"></div><div class="g-ct"><strong>Teams：設定 → デバイス → スピーカー：VoiceMeeter Input</strong></div></div>
+          <div class="g-item" onclick="gToggle(this)"><div class="g-cb"></div><div class="g-ct"><strong>Teams：設定 → デバイス → マイク：物理マイク</strong></div></div>
+          <div class="g-item" onclick="gToggle(this)"><div class="g-cb"></div><div class="g-ct"><strong>Zoom：設定 → オーディオ → スピーカー：VoiceMeeter Input</strong></div></div>
+          <div class="g-item" onclick="gToggle(this)"><div class="g-cb"></div><div class="g-ct"><strong>Zoom：設定 → オーディオ → マイク：物理マイク</strong></div></div>
+        </div>
+        <div class="g-hbox amber">⚠️ イヤホンを変えた場合はA1のデバイスを変更するだけでOKです。</div>
+      </div>
+
+      <div class="g-page" id="gp-4">
+        <div class="g-step">Step 5</div>
+        <h3 style="font-size:15px;font-weight:600;margin-bottom:10px">動作確認</h3>
+        <div class="g-check">
+          <div class="g-item" onclick="gToggle(this)"><div class="g-cb"></div><div class="g-ct"><strong>録音開始 → 「テスト」と話して文字起こし確認</strong></div></div>
+          <div class="g-item" onclick="gToggle(this)"><div class="g-cb"></div><div class="g-ct"><strong>YouTube等を流して相手の声の文字起こし確認</strong></div></div>
+          <div class="g-item" onclick="gToggle(this)"><div class="g-cb"></div><div class="g-ct"><strong>イヤホンから音が正常に聞こえることを確認</strong></div></div>
+        </div>
+        <div class="g-hbox red">❌ うまくいかない場合<br>→ VIRTUAL INPUTS の B1 が点灯しているか確認<br>→ Teams のスピーカーが VoiceMeeter Input か確認<br>→ VoiceMeeter を再起動</div>
+        <div id="gFinalMsg" style="display:none;margin-top:12px;padding:14px;background:var(--green-light);border-radius:10px;text-align:center;font-size:15px;color:var(--green);font-weight:600">
+          🎉 設定完了！録音を開始してください。
+        </div>
+      </div>
+
+      <div class="g-nav">
+        <button class="bn" id="gPrevBtn" onclick="gPrev()" disabled>← 前へ</button>
+        <button class="bp" id="gNextBtn" onclick="gNext()">次へ →</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+// ── CONFIG ──
+const AI_CFG={
+  gemini:{label:'Gemini',storageKey:'api_key_gemini',models:[
+    {id:'gemini-2.5-flash',label:'Gemini 2.5 Flash（推奨）'},
+    {id:'gemini-2.5-flash-lite',label:'Gemini 2.5 Flash Lite（高速）'},
+  ]},
+  claude:{label:'Claude',storageKey:'api_key_claude',models:[
+    {id:'claude-sonnet-4-20250514',label:'Claude Sonnet 4（推奨）'},
+    {id:'claude-haiku-4-5-20251001',label:'Claude Haiku 4.5（高速）'},
+  ]},
+  openai:{label:'GPT-4o',storageKey:'api_key_openai',models:[
+    {id:'gpt-4o',label:'GPT-4o（推奨）'},
+    {id:'gpt-4o-mini',label:'GPT-4o mini（高速）'},
+  ]},
+};
+
+// ── STATE ──
+let selectedAI='gemini';
+let isRecording=false;
+let transcriptLines=[];
+let minutesText='';
+let timerInterval=null, seconds=0;
+let recStartDate=null;
+let mediaRecorder=null, audioChunks=[], audioBlob=null, audioURL=null;
+let rootDirHandle=null;
+let projects=[], meetings=[], currentMeetingId=null, _detailPid=null;
+let keepAliveStream=null;
+let recMain=null;
+let keepAliveInterval=null;
+
+// ── INIT ──
+window.addEventListener('DOMContentLoaded', async () => {
+  loadDB();
+  // マイク許可を事前取得して保持
+  try {
+    keepAliveStream = await navigator.mediaDevices.getUserMedia({audio:true});
+  } catch(e) { console.warn('初期マイク取得失敗:', e); }
+  selectAI('gemini');
+  loadApiKeyDisplays();
+  loadSavedFolderMeta();
+  renderSidebar();
+  renderProjectList();
+  renderProjectSelect();
+  updateFolderPreview();
+  resetContext();
+  loadOpfsList();
+  if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window))
+    alert('Chrome / Edge をご使用ください');
+  if (!localStorage.getItem('guide_shown')) showGuide();
+});
+
+// ── DB ──
+function loadDB() {
+  projects = JSON.parse(localStorage.getItem('mtg_projects') || '[]');
+  meetings  = JSON.parse(localStorage.getItem('mtg_meetings')  || '[]');
+}
+function saveDB() {
+  localStorage.setItem('mtg_projects', JSON.stringify(projects));
+  localStorage.setItem('mtg_meetings',  JSON.stringify(meetings));
+}
+
+// ── TABS ──
+function showTab(t) {
+  document.querySelectorAll('.tab').forEach(el => el.classList.toggle('active', el.dataset.tab === t));
+  document.querySelectorAll('.tp').forEach(el => el.classList.toggle('active', el.id === 'tab-' + t));
+}
+
+// ── SIDEBAR ──
+function renderSidebar() {
+  const sp = document.getElementById('sbProj');
+  sp.innerHTML = projects.length
+    ? projects.map(p => `<div class="sb-item" onclick="filterByProject('${p.id}')">
+        <span style="color:${p.color||'var(--accent)'};font-size:9px">●</span>
+        <span class="sbi-name">${esc(p.name)}</span>
+        <span class="sbi-meta">${meetings.filter(m=>m.projectId===p.id).length}件</span>
+      </div>`).join('')
+    : '<div style="padding:5px 14px;font-size:12px;color:var(--hint)">なし</div>';
+
+  const sr = document.getElementById('sbRecent');
+  const recent = [...meetings].sort((a,b) => b.createdAt - a.createdAt).slice(0, 10);
+  sr.innerHTML = recent.length
+    ? recent.map(m => `<div class="sb-item ${m.id===currentMeetingId?'active':''}" onclick="openReview('${m.id}')">
+        <span class="sbi-name">${esc(m.name||'無題')}</span>
+        <span class="sbi-meta">${fmtShort(m.createdAt)}</span>
+      </div>`).join('')
+    : '<div style="padding:5px 14px;font-size:12px;color:var(--hint)">なし</div>';
+}
+function filterByProject(pid) { showTab('projects'); openProjectDetail(pid); }
+
+// ── RECORDING ──
+async function startRecording() {
+  const lang = document.getElementById('langSelect').value;
+  recStartDate = new Date();
+  document.getElementById('recStartTime').textContent = fmtFull(recStartDate);
+  updateFolderPreview();
+  resetContext();
+
+  // streamを取得
+  let stream = keepAliveStream;
+  if (!stream || stream.getAudioTracks().every(t => t.readyState !== 'live')) {
+    try {
+      stream = await navigator.mediaDevices.getUserMedia({audio:true});
+      keepAliveStream = stream;
+    } catch(e) {
+      alert('マイクアクセスエラー: ' + e.message);
+      return;
+    }
+  }
+
+  // MediaRecorder
+  audioChunks = [];
+  const mime = MediaRecorder.isTypeSupported('audio/webm;codecs=opus') ? 'audio/webm;codecs=opus' : 'audio/webm';
+  mediaRecorder = new MediaRecorder(stream, {mimeType: mime});
+  mediaRecorder.ondataavailable = e => { if (e.data.size > 0) audioChunks.push(e.data); };
+  mediaRecorder.onstop = () => {
+    audioBlob = new Blob(audioChunks, {type: mime});
+    audioURL  = URL.createObjectURL(audioBlob);
+    document.getElementById('audioPlayer').src = audioURL;
+    document.getElementById('audioCard').style.display = 'block';
+  };
+  mediaRecorder.start(1000);
+
+  isRecording = true;
+  document.getElementById('startBtn').disabled = true;
+  document.getElementById('stopBtn').disabled  = false;
+  setStatus('録音中', 's-rec');
+  startTimer();
+  document.getElementById('transcriptBox').innerHTML = '';
+
+  startSpeechRec(lang);
+  startKeepAlive();
+}
+
+// ── SPEECH RECOGNITION（1チャンネル）──
+function startSpeechRec(lang) {
+  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+
+  recMain = new SR();
+  recMain.lang = lang;
+  recMain.continuous = true;
+  recMain.interimResults = true;
+  recMain.maxAlternatives = 1;
+
+  recMain.onstart = () => setSrStatus('🟢 認識中');
+
+  recMain.onresult = e => {
+    let interim = '';
+    for (let i = e.resultIndex; i < e.results.length; i++) {
+      const t = e.results[i][0].transcript;
+      if (e.results[i].isFinal) {
+        const txt = t.trim();
+        if (txt) { transcriptLines.push(txt); renderTranscript(); }
+      } else interim += t;
+    }
+    const box = document.getElementById('transcriptBox');
+    let el = document.getElementById('interim-main');
+    if (!el) { el = document.createElement('div'); el.id = 'interim-main'; el.className = 'tline'; box.appendChild(el); }
+    el.innerHTML = interim ? `<span class="interim-txt">${esc(interim)}</span>` : '';
+    box.scrollTop = box.scrollHeight;
+  };
+
+  recMain.onerror = e => {
+    if (e.error === 'no-speech') return;
+    setSrStatus('🔴 エラー: ' + e.error);
+  };
+
+  recMain.onend = () => {
+    if (!isRecording) { setSrStatus('⚫ 停止'); return; }
+    setSrStatus('🟡 再起動中...');
+    try { recMain.start(); setSrStatus('🟢 認識中'); } catch(e) {}
+  };
+
+  try { recMain.start(); } catch(e) { setSrStatus('❌ 起動失敗: ' + e.message); }
+}
+function setSrStatus(txt) {
+  const el = document.getElementById('srStatus');
+  if (el) el.textContent = txt;
+}
+
+// keepAliveStream を30秒ごとに確認
+function startKeepAlive() {
+  stopKeepAlive();
+  keepAliveInterval = setInterval(async () => {
+    if (!isRecording) return;
+    const tracks = keepAliveStream ? keepAliveStream.getAudioTracks() : [];
+    if (!tracks.length || tracks[0].readyState !== 'live') {
+      try { keepAliveStream = await navigator.mediaDevices.getUserMedia({audio:true}); }
+      catch(e) { console.warn('keepAlive再取得失敗', e); }
+    }
+  }, 30000);
+}
+function stopKeepAlive() {
+  if (keepAliveInterval) { clearInterval(keepAliveInterval); keepAliveInterval = null; }
+}
+
+function stopRecording() {
+  isRecording = false;
+  stopKeepAlive();
+  if (recMain) { try { recMain.abort(); } catch(e) {} recMain = null; }
+
+  if (mediaRecorder && mediaRecorder.state !== 'inactive') mediaRecorder.stop();
+  stopTimer();
+  document.getElementById('startBtn').disabled = false;
+  document.getElementById('stopBtn').disabled  = true;
+  setStatus('録音完了', 's-done');
+  setSrStatus('⚫ 停止');
+  renderTranscript();
+}
+
+function clearAll() {
+  if (isRecording) stopRecording();
+  transcriptLines = []; minutesText = ''; audioBlob = null; audioURL = null; audioChunks = [];
+  recStartDate = null;
+  document.getElementById('recStartTime').textContent = '（録音開始時に自動セット）';
+  document.getElementById('transcriptBox').innerHTML = '<span class="ph">録音を開始するとリアルタイムで文字が表示されます。</span>';
+  document.getElementById('minutesBox').innerHTML = '<span class="ph">「議事録を生成」ボタンで作成します。</span>';
+  document.getElementById('audioCard').style.display = 'none';
+  document.getElementById('audioPlayer').src = '';
+  document.getElementById('charCount').textContent = '0 文字';
+  document.getElementById('saveStatus').textContent = '';
+  setSrStatus('⚫ 待機中');
+  seconds = 0; document.getElementById('timer').textContent = '00:00:00';
+  setStatus('待機中', 's-idle');
+  resetContext();
+}
+
+function newMeeting() {
+  clearAll(); currentMeetingId = null;
+  showTab('record');
+  document.getElementById('meetingName').value = '';
+  document.getElementById('meetingName').focus();
+  renderSidebar();
+}
+
+function renderTranscript() {
+  const box = document.getElementById('transcriptBox');
+  const interim = document.getElementById('interim-main');
+  box.innerHTML = transcriptLines.map(t => `<div class="tline">${esc(t)}</div>`).join('');
+  if (interim) box.appendChild(interim);
+  box.scrollTop = box.scrollHeight;
+  document.getElementById('charCount').textContent = transcriptLines.join('').length + ' 文字';
+  updateFolderPreview();
+}
+function getTranscriptText() { return transcriptLines.join('\n'); }
+
+// ── TIMER / STATUS ──
+function startTimer() {
+  seconds = 0;
+  timerInterval = setInterval(() => {
+    seconds++;
+    document.getElementById('timer').textContent =
+      pad(Math.floor(seconds/3600)) + ':' + pad(Math.floor((seconds%3600)/60)) + ':' + pad(seconds%60);
+  }, 1000);
+}
+function stopTimer() { clearInterval(timerInterval); }
+function pad(n) { return String(n).padStart(2, '0'); }
+function setStatus(t, cls) {
+  const b = document.getElementById('statusBadge');
+  b.className = 'sbadge ' + cls;
+  document.getElementById('statusDot').className = 'dot' + (cls === 's-rec' ? ' pulse' : '');
+  document.getElementById('statusText').textContent = t;
+}
+
+// ── CONTEXT ──
+function buildContextTemplate() {
+  return `日時：${recStartDate ? fmtFull(recStartDate) : ''}\n参加者：\n主な議題：\n備考：`;
+}
+function resetContext() { document.getElementById('context').value = buildContextTemplate(); }
+
+// ── AI SELECT ──
+function selectAI(ai) {
+  selectedAI = ai;
+  document.querySelectorAll('.chip').forEach(b => b.classList.toggle('active', b.dataset.ai === ai));
+  document.getElementById('modelSelect').innerHTML =
+    AI_CFG[ai].models.map(m => `<option value="${m.id}">${m.label}</option>`).join('');
+}
+
+// ── GENERATE MINUTES ──
+async function generateMinutes() {
+  const cfg = AI_CFG[selectedAI];
+  const apiKey = localStorage.getItem(cfg.storageKey);
+  const model = document.getElementById('modelSelect').value;
+  const box = document.getElementById('minutesBox');
+  const btn = document.getElementById('genBtn');
+
+  if (!apiKey) { alert(cfg.label + ' のAPIキーを設定タブで入力してください'); showTab('settings'); return; }
+  const txt = getTranscriptText();
+  if (!txt.trim()) { alert('文字起こしがありません'); return; }
+
+  const meetingName = document.getElementById('meetingName').value.trim() || '（無題）';
+  const startStr = recStartDate ? fmtFull(recStartDate) : '不明';
+  const duration = document.getElementById('timer').textContent;
+  const context  = document.getElementById('context').value.trim();
+
+  btn.disabled = true;
+  const steps = ['📤 ' + cfg.label + ' へ送信中...', '⏳ 議事録を作成中...', '✍️ もう少しで完成します...'];
+  let si = 0;
+  box.innerHTML = `<div class="loading"><div class="spin"></div><span id="genStatus">${steps[0]}</span></div>`;
+  const iv = setInterval(() => {
+    si = Math.min(si+1, steps.length-1);
+    const el = document.getElementById('genStatus');
+    if (el) el.textContent = steps[si];
+  }, 4000);
+
+  const prompt = `プロの議事録作成者として、以下の会議録から構造化された日本語の議事録を作成してください。\n\n【会議名】${meetingName}\n【日時】${startStr}\n【時間】${duration}\n【コンテキスト】\n${context}\n\n【文字起こし】\n${txt}\n\n---\n# 議事録：${meetingName}\n\n## 基本情報\n- 日時：${startStr}\n- 録音時間：${duration}\n- 参加者：（コンテキストより）\n\n## 決定事項\n\n## 主な議論・論点\n\n## アクションアイテム\n| 担当 | 内容 | 期限 |\n|------|------|------|\n\n## 次回への持ち越し\n\n## その他メモ\n\n不明な部分は「[不明]」と記してください。`;
+
+  try {
+    if (selectedAI === 'claude')      minutesText = await callClaude(apiKey, model, prompt);
+    else if (selectedAI === 'gemini') minutesText = await callGemini(apiKey, model, prompt);
+    else if (selectedAI === 'openai') minutesText = await callOpenAI(apiKey, model, prompt);
+    box.textContent = minutesText;
+  } catch(e) {
+    box.innerHTML = `<div style="color:var(--red);font-size:13px">❌ <strong>エラー</strong><br><br>${e.message}<br><br><span style="color:var(--muted)">APIキーとネットワークを確認してください</span></div>`;
+  } finally {
+    clearInterval(iv); btn.disabled = false;
+  }
+}
+
+async function callClaude(k, m, p) {
+  const r = await fetch('https://api.anthropic.com/v1/messages', {method:'POST',
+    headers:{'Content-Type':'application/json','x-api-key':k,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},
+    body: JSON.stringify({model:m, max_tokens:2500, messages:[{role:'user', content:p}]})});
+  if (!r.ok) { const e = await r.json().catch(()=>({})); throw new Error(e.error?.message || 'Claude ' + r.status); }
+  const d = await r.json(); return d.content.map(b => b.text||'').join('');
+}
+async function callGemini(k, m, p) {
+  const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${m}:generateContent?key=${k}`,
+    {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({contents:[{parts:[{text:p}]}]})});
+  if (!r.ok) { const e = await r.json().catch(()=>({})); throw new Error(e.error?.message || 'Gemini ' + r.status); }
+  const d = await r.json(); return d.candidates?.[0]?.content?.parts?.map(x=>x.text||'').join('') || '（応答なし）';
+}
+async function callOpenAI(k, m, p) {
+  const r = await fetch('https://api.openai.com/v1/chat/completions', {method:'POST',
+    headers:{'Content-Type':'application/json','Authorization':'Bearer '+k},
+    body: JSON.stringify({model:m, max_tokens:2500, messages:[{role:'user', content:p}]})});
+  if (!r.ok) { const e = await r.json().catch(()=>({})); throw new Error(e.error?.message || 'OpenAI ' + r.status); }
+  const d = await r.json(); return d.choices?.[0]?.message?.content || '（応答なし）';
+}
+
+// ── OPFS ──
+async function opfsSave(meta) {
+  try {
+    const root = await navigator.storage.getDirectory();
+    const dir  = await root.getDirectoryHandle('meetings', {create:true});
+    const fh   = await dir.getFileHandle(meta.id + '.json', {create:true});
+    const w    = await fh.createWritable();
+    await w.write(JSON.stringify(meta)); await w.close();
+  } catch(e) { console.warn('OPFS save:', e); }
+}
+async function opfsLoadAll() {
+  try {
+    const root = await navigator.storage.getDirectory();
+    const dir  = await root.getDirectoryHandle('meetings', {create:true});
+    const files = [];
+    for await (const [name, handle] of dir.entries()) {
+      if (name.endsWith('.json')) {
+        const file = await handle.getFile();
+        try { files.push(JSON.parse(await file.text())); } catch {}
+      }
+    }
+    return files;
+  } catch { return []; }
+}
+async function opfsLoad(id) {
+  try {
+    const root = await navigator.storage.getDirectory();
+    const dir  = await root.getDirectoryHandle('meetings');
+    const fh   = await dir.getFileHandle(id + '.json');
+    return JSON.parse(await (await fh.getFile()).text());
+  } catch { return null; }
+}
+async function opfsBackupNow() {
+  const meta = buildMetaObj();
+  await opfsSave(meta); saveMeetingRecord(meta);
+  document.getElementById('saveStatus').textContent = '✅ ブラウザ内にバックアップしました';
+}
+async function loadOpfsList() {
+  const el = document.getElementById('opfsFileList');
+  if (!el) return;
+  const files = await opfsLoadAll();
+  if (!files.length) { el.textContent = '（バックアップなし）'; return; }
+  el.innerHTML = files.sort((a,b) => (b.createdAt||0)-(a.createdAt||0)).map(m =>
+    `<div style="padding:6px 0;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:8px">
+      <span style="flex:1;font-size:13px">${esc(m.name||'無題')} <span style="color:var(--hint);font-size:11px">${fmtFull(m.startAt||m.createdAt)}</span></span>
+      <button class="bn bsm" onclick="opfsExport('${m.id}')">📥 書き出し</button>
+    </div>`).join('');
+}
+async function opfsExport(id) {
+  const m = await opfsLoad(id);
+  if (!m) { alert('データが見つかりません'); return; }
+  if (!rootDirHandle) { await pickFolder(); if (!rootDirHandle) return; }
+  await writeToFolder(m, null);
+}
+async function clearOpfs() {
+  if (!confirm('OPFSデータをすべて削除しますか？')) return;
+  try {
+    const root = await navigator.storage.getDirectory();
+    await root.removeEntry('meetings', {recursive:true});
+    document.getElementById('opfsFileList').textContent = '（削除しました）';
+  } catch(e) { alert('削除失敗: ' + e.message); }
+}
+
+// ── FOLDER SAVE ──
+function buildFolderName() {
+  const now = recStartDate || new Date();
+  const d = now.getFullYear() + pad(now.getMonth()+1) + pad(now.getDate()) + '_' + pad(now.getHours()) + pad(now.getMinutes());
+  const name = (document.getElementById('meetingName').value.trim() || 'mtg').replace(/[\\/:*?"<>|]/g,'_').slice(0,40);
+  return d + '_' + name;
+}
+function updateFolderPreview() {
+  document.getElementById('folderPreview').textContent = buildFolderName();
+}
+async function pickFolder() {
+  if (!window.showDirectoryPicker) { alert('Chrome / Edge が必要です'); return; }
+  try {
+    rootDirHandle = await window.showDirectoryPicker({mode:'readwrite'});
+    localStorage.setItem('saved_folder_name', rootDirHandle.name);
+    updateFolderDisplay(rootDirHandle.name, true);
+  } catch(e) { if (e.name !== 'AbortError') alert('フォルダ選択失敗: ' + e.message); }
+}
+async function reconnectFolder() {
+  if (!window.showDirectoryPicker) { alert('Chrome / Edge が必要です'); return; }
+  try {
+    rootDirHandle = await window.showDirectoryPicker({mode:'readwrite'});
+    localStorage.setItem('saved_folder_name', rootDirHandle.name);
+    updateFolderDisplay(rootDirHandle.name, true);
+    document.getElementById('saveStatus').textContent = '✅ 再接続しました：' + rootDirHandle.name;
+  } catch(e) { if (e.name !== 'AbortError') alert('再接続失敗: ' + e.message); }
+}
+function updateFolderDisplay(name, connected) {
+  document.getElementById('folderDisplay').textContent = connected ? '📂 ' + name : '⚠ ' + name + '（未接続）';
+  document.getElementById('folderDisplay').style.color = connected ? 'var(--teal)' : 'var(--amber)';
+  document.getElementById('reconnectBtn').style.display = connected ? 'none' : 'inline-flex';
+}
+async function pickFolderSettings() {
+  if (!window.showDirectoryPicker) { alert('Chrome / Edge が必要です'); return; }
+  try {
+    const h = await window.showDirectoryPicker({mode:'readwrite'});
+    rootDirHandle = h;
+    localStorage.setItem('saved_folder_name', h.name);
+    document.getElementById('savedFolderDisplay').textContent = '📂 ' + h.name + '（設定済み）';
+    updateFolderDisplay(h.name, true);
+    alert('固定しました: ' + h.name);
+  } catch(e) { if (e.name !== 'AbortError') alert('エラー: ' + e.message); }
+}
+function loadSavedFolderMeta() {
+  const name = localStorage.getItem('saved_folder_name');
+  if (name) {
+    // 前回のフォルダ名を表示・未接続状態で再接続ボタンを出す
+    updateFolderDisplay(name, false);
+    document.getElementById('savedFolderDisplay').textContent = '📂 ' + name + '（前回設定済み）';
+  }
+}
+function clearSavedFolder() {
+  localStorage.removeItem('saved_folder_name');
+  rootDirHandle = null;
+  document.getElementById('savedFolderDisplay').textContent = '未設定';
+  document.getElementById('folderDisplay').textContent = '未選択';
+}
+function buildMetaObj() {
+  const txt = getTranscriptText();
+  return {
+    id: currentMeetingId || Date.now().toString(),
+    name: document.getElementById('meetingName').value || '無題',
+    projectId: document.getElementById('projectSelect').value || null,
+    createdAt: Date.now(), startAt: recStartDate ? recStartDate.getTime() : Date.now(),
+    duration: document.getElementById('timer').textContent,
+    ai: selectedAI, model: document.getElementById('modelSelect').value,
+    folderName: buildFolderName(),
+    hasAudio: !!audioBlob, hasTranscript: !!txt.trim(), hasMinutes: !!minutesText.trim(),
+    transcript: txt, minutes: minutesText, context: document.getElementById('context').value,
+  };
+}
+async function writeToFolder(meta, ab) {
+  const dir = await rootDirHandle.getDirectoryHandle(meta.folderName, {create:true});
+  const saved = [];
+  const blob = ab !== undefined ? ab : audioBlob;
+  if (blob) {
+    const ext = blob.type.includes('webm') ? 'webm' : 'wav';
+    const fh = await dir.getFileHandle('recording.' + ext, {create:true});
+    const w = await fh.createWritable(); await w.write(blob); await w.close();
+    saved.push('🔊 recording.' + ext);
+  }
+  if (meta.transcript?.trim()) {
+    const fh = await dir.getFileHandle('transcript.txt', {create:true});
+    const w = await fh.createWritable();
+    await w.write(`会議名: ${meta.name}\n日時: ${fmtFull(meta.startAt)}\n時間: ${meta.duration}\n\n---\n\n${meta.transcript}`);
+    await w.close(); saved.push('📝 transcript.txt');
+  }
+  if (meta.minutes?.trim()) {
+    const fh = await dir.getFileHandle('minutes.txt', {create:true});
+    const w = await fh.createWritable(); await w.write(meta.minutes); await w.close();
+    saved.push('📄 minutes.txt');
+  }
+  const fh = await dir.getFileHandle('info.json', {create:true});
+  const w = await fh.createWritable(); await w.write(JSON.stringify(meta, null, 2)); await w.close();
+  saved.push('ℹ info.json');
+  return saved;
+}
+async function saveAllFiles() {
+  if (!rootDirHandle) { alert('先に「📂 フォルダを選択」を押してください'); return; }
+  const btn = document.getElementById('saveAllBtn');
+  const st  = document.getElementById('saveStatus');
+  btn.disabled = true; st.textContent = '💾 保存中...';
+  try {
+    const meta = buildMetaObj();
+    const saved = await writeToFolder(meta, audioBlob);
+    await opfsSave(meta); saveMeetingRecord(meta);
+    st.textContent = `✅ 保存完了 → ${rootDirHandle.name}/${meta.folderName}/ (${saved.join(', ')})`;
+  } catch(e) { st.textContent = '❌ 保存失敗: ' + e.message; }
+  finally { btn.disabled = false; }
+}
+function saveMeetingRecord(meta) {
+  const idx = meetings.findIndex(m => m.id === meta.id);
+  if (idx >= 0) meetings[idx] = {...meetings[idx], ...meta};
+  else meetings.push(meta);
+  currentMeetingId = meta.id;
+  saveDB(); renderSidebar(); if (_detailPid) renderProjectDetail();
+}
+
+// ── REVIEW MODAL ──
+function openReview(mid) {
+  const m = meetings.find(x => x.id === mid);
+  if (!m) { alert('データが見つかりません'); return; }
+  document.getElementById('reviewTitle').textContent = m.name || '無題';
+  document.getElementById('reviewMeta').textContent  = fmtFull(m.startAt||m.createdAt) + ' ・ ' + m.duration + ' ・ ' + m.ai;
+  document.getElementById('rvMinutes').textContent    = m.minutes    || '（議事録なし）';
+  document.getElementById('rvTranscript').textContent = m.transcript || '（文字起こしなし）';
+  document.getElementById('rvInfo').textContent =
+    `会議名: ${m.name||'無題'}\nプロジェクト: ${projects.find(p=>p.id===m.projectId)?.name||'なし'}\n日時: ${fmtFull(m.startAt||m.createdAt)}\n時間: ${m.duration||'--'}\nAI: ${m.ai||'--'} / ${m.model||'--'}\nフォルダ: ${m.folderName||'--'}`;
+  switchModalTab('mt-minutes');
+  document.getElementById('reviewOverlay').style.display = 'flex';
+  currentMeetingId = mid; renderSidebar();
+}
+function closeReview(e) {
+  if (!e || e.target === document.getElementById('reviewOverlay'))
+    document.getElementById('reviewOverlay').style.display = 'none';
+}
+function switchModalTab(id) {
+  document.querySelectorAll('.mtab').forEach((el,i) =>
+    el.classList.toggle('active', ['mt-minutes','mt-transcript','mt-info'][i] === id));
+  document.querySelectorAll('.mtp').forEach(el => el.classList.toggle('active', el.id === id));
+}
+function copyText(elId) { navigator.clipboard.writeText(document.getElementById(elId).textContent).then(() => alert('コピーしました')); }
+
+// ── DOWNLOADS ──
+function downloadAudio()    { if (!audioBlob) { alert('録音データがありません'); return; } trigDl(audioURL, 'recording_' + ds() + '.webm'); }
+function copyTranscript()   { const t = getTranscriptText(); if (!t) { alert('文字起こしがありません'); return; } navigator.clipboard.writeText(t).then(() => alert('コピーしました')); }
+function downloadTranscript(){ const t = getTranscriptText(); if (!t) { alert('文字起こしがありません'); return; } trigDl(bURL(t), 'transcript_' + ds() + '.txt'); }
+function copyMinutes()      { if (!minutesText) { alert('議事録がありません'); return; } navigator.clipboard.writeText(minutesText).then(() => alert('コピーしました')); }
+function downloadMinutes()  { if (!minutesText) { alert('議事録がありません'); return; } trigDl(bURL(minutesText), 'minutes_' + ds() + '.txt'); }
+function bURL(t) { return URL.createObjectURL(new Blob([t], {type:'text/plain;charset=utf-8'})); }
+function trigDl(url, name) { const a = document.createElement('a'); a.href = url; a.download = name; a.click(); }
+function ds() { const d = new Date(); return d.getFullYear() + pad(d.getMonth()+1) + pad(d.getDate()) + '_' + pad(d.getHours()) + pad(d.getMinutes()); }
+
+// ── PROJECTS ──
+const COLORS = ['#533ab7','#0f6e56','#ba7517','#e24b4a','#185fa5','#993556'];
+let _ci = 0;
+function addProject() {
+  const name = document.getElementById('newProjName').value.trim();
+  if (!name) { alert('名前を入力してください'); return; }
+  const color = document.getElementById('newProjColor').value.trim() || COLORS[_ci++ % COLORS.length];
+  projects.push({id: Date.now().toString(), name, color, createdAt: Date.now()});
+  saveDB();
+  document.getElementById('newProjName').value = '';
+  document.getElementById('newProjColor').value = '';
+  renderProjectList(); renderProjectSelect(); renderSidebar();
+}
+function renderProjectList() {
+  const el = document.getElementById('projList');
+  if (!projects.length) { el.innerHTML = '<div class="empty"><div class="ei">📁</div>プロジェクトがありません</div>'; return; }
+  el.innerHTML = projects.map(p => {
+    const cnt = meetings.filter(m => m.projectId === p.id).length;
+    return `<div class="pcard" onclick="openProjectDetail('${p.id}')">
+      <div style="display:flex;align-items:center;gap:10px">
+        <span style="color:${p.color};font-size:20px">●</span>
+        <div style="flex:1"><div class="pname">${esc(p.name)}</div>
+        <div class="pmeta"><span>${fmtShort(p.createdAt)}</span><span>${cnt}件</span></div></div>
+        <button class="bn bsm" onclick="event.stopPropagation();deleteProject('${p.id}')">削除</button>
+      </div></div>`;
+  }).join('');
+}
+function openProjectDetail(pid) {
+  _detailPid = pid;
+  const p = projects.find(x => x.id === pid); if (!p) return;
+  document.getElementById('projMtgCard').style.display = 'block';
+  document.getElementById('projMtgTitle').textContent = '📁 ' + p.name + ' の会議履歴';
+  renderProjectDetail();
+}
+function renderProjectDetail() {
+  if (!_detailPid) return;
+  const mtgs = meetings.filter(m => m.projectId === _detailPid).sort((a,b) => b.createdAt - a.createdAt);
+  const el = document.getElementById('projMtgList');
+  if (!mtgs.length) { el.innerHTML = '<div class="empty"><div class="ei">📭</div>会議なし</div>'; return; }
+  el.innerHTML = mtgs.map(m => `
+    <div class="mrow" onclick="openReview('${m.id}')">
+      <div class="minfo"><div class="mn">${esc(m.name||'無題')}</div>
+      <div class="mm">${fmtFull(m.startAt||m.createdAt)} ・ ${m.duration||'--'} ・ ${m.ai||'--'}</div></div>
+      <div style="font-size:15px;letter-spacing:2px">${m.hasAudio?'🔊':''}${m.hasTranscript?'📝':''}${m.hasMinutes?'📄':''}</div>
+      <button class="bn bsm" onclick="event.stopPropagation();deleteMeeting('${m.id}')">削除</button>
+    </div>`).join('');
+}
+function renderProjectSelect() {
+  const sel = document.getElementById('projectSelect');
+  const cur = sel.value;
+  sel.innerHTML = '<option value="">── プロジェクトなし ──</option>';
+  projects.forEach(p => { const o = document.createElement('option'); o.value = p.id; o.textContent = p.name; sel.appendChild(o); });
+  if (cur) sel.value = cur;
+}
+function deleteProject(pid) {
+  if (!confirm('削除しますか？')) return;
+  projects = projects.filter(p => p.id !== pid);
+  saveDB(); renderProjectList(); renderProjectSelect(); renderSidebar();
+  if (_detailPid === pid) { document.getElementById('projMtgCard').style.display = 'none'; _detailPid = null; }
+}
+function deleteMeeting(mid) {
+  if (!confirm('会議記録を削除しますか？')) return;
+  meetings = meetings.filter(m => m.id !== mid);
+  saveDB(); renderSidebar(); renderProjectDetail();
+}
+
+// ── SETTINGS ──
+function loadApiKeyDisplays() {
+  [['gemini','keyGemini','ksgem'],['claude','keyClaude','kscla'],['openai','keyOpenai','ksoai']].forEach(([ai,el,st]) => {
+    const k = localStorage.getItem('api_key_' + ai);
+    if (k) document.getElementById(el).value = k;
+    document.getElementById(st).textContent = k ? '✅ 保存済み（' + k.slice(0,12) + '…）' : '未設定';
+  });
+}
+function saveApiKey(ai) {
+  const map = {gemini:'keyGemini', claude:'keyClaude', openai:'keyOpenai'};
+  const stm = {gemini:'ksgem', claude:'kscla', openai:'ksoai'};
+  const key = document.getElementById(map[ai]).value.trim(); if (!key) return;
+  localStorage.setItem('api_key_' + ai, key);
+  document.getElementById(stm[ai]).textContent = '✅ 保存済み（' + key.slice(0,12) + '…）';
+}
+function clearAllData() {
+  if (!confirm('すべてのデータを削除しますか？')) return;
+  ['mtg_projects','mtg_meetings','api_key_gemini','api_key_claude','api_key_openai','saved_folder_name','guide_shown']
+    .forEach(k => localStorage.removeItem(k));
+  loadDB(); renderSidebar(); renderProjectList(); renderProjectSelect(); loadApiKeyDisplays();
+  alert('削除しました');
+}
+
+// ── GUIDE ──
+let gCurrent = 0;
+const gTotal  = 5;
+
+function showGuide() {
+  document.getElementById('guideOverlay').style.display = 'flex';
+  // ドット生成
+  const dots = document.getElementById('gDots');
+  dots.innerHTML = Array.from({length: gTotal}, (_,i) => `<div class="g-dot" id="gdot-${i}"></div>`).join('');
+  gGoTo(0);
+}
+function closeGuide() {
+  document.getElementById('guideOverlay').style.display = 'none';
+  localStorage.setItem('guide_shown', '1');
+}
+function gGoTo(n) {
+  document.querySelectorAll('.g-page').forEach((p,i) => p.classList.toggle('active', i === n));
+  for (let i = 0; i < gTotal; i++) {
+    const d = document.getElementById('gdot-' + i);
+    if (d) { d.className = 'g-dot' + (i < n ? ' done' : i === n ? ' active' : ''); }
+  }
+  document.getElementById('gPrevBtn').disabled = n === 0;
+  document.getElementById('gNextBtn').textContent = n === gTotal-1 ? '✅ 完了' : '次へ →';
+  gCurrent = n;
+}
+function gNext() { if (gCurrent < gTotal-1) gGoTo(gCurrent+1); else closeGuide(); }
+function gPrev() { if (gCurrent > 0) gGoTo(gCurrent-1); }
+function gToggle(el) {
+  el.classList.toggle('done');
+  el.querySelector('.g-cb').textContent = el.classList.contains('done') ? '✓' : '';
+  if (el.closest('#gp-4')) {
+    const all = [...document.querySelectorAll('#gp-4 .g-item')].every(i => i.classList.contains('done'));
+    const fm = document.getElementById('gFinalMsg');
+    if (fm) fm.style.display = all ? 'block' : 'none';
+  }
+}
+
+// ── UTILS ──
+function esc(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+function fmtFull(ts) {
+  if (!ts) return '不明';
+  const d = new Date(ts);
+  return d.getFullYear() + '/' + pad(d.getMonth()+1) + '/' + pad(d.getDate()) + ' ' + pad(d.getHours()) + ':' + pad(d.getMinutes());
+}
+function fmtShort(ts) {
+  if (!ts) return '';
+  const d = new Date(ts);
+  return pad(d.getMonth()+1) + '/' + pad(d.getDate()) + ' ' + pad(d.getHours()) + ':' + pad(d.getMinutes());
+}
+
+renderProjectList();
+</script>
+</body>
+</html>
